@@ -28,6 +28,14 @@ find_package(HDF5 REQUIRED)
 find_package(MPI REQUIRED)
 #find_package(GSL REQUIRED)
 
+# The code calls the LAPACKE C interface. macOS OpenBLAS bundles it, but the
+# Linux OpenBLAS package does not, so locate liblapacke and link it ahead of
+# LAPACK/BLAS (it depends on their symbols).
+if(NOT APPLE)
+  find_library(LAPACKE_LIB NAMES lapacke REQUIRED)
+  list(PREPEND LAPACK_LIBRARIES ${LAPACKE_LIB})
+endif()
+
 # set cflags
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I/opt/homebrew/Cellar/libomp/21.1.8/include")
 if(APPLE)
@@ -35,7 +43,11 @@ if(APPLE)
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -Wall -std=gnu99 -march=native")
-SET(CMAKE_C_FLAGS_DEBUG "-glldb -O0")
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+  SET(CMAKE_C_FLAGS_DEBUG "-glldb -O0")
+else()
+  SET(CMAKE_C_FLAGS_DEBUG "-g -O0")
+endif()
 SET(CMAKE_C_FLAGS_RELEASE "-O3")
 
 # Set git version header file
