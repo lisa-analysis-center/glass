@@ -174,6 +174,7 @@ struct Flags
     int stationaryConf; //!<`[--stationary-conf; default=FALSE]`: inject confusion noise as stationary (no time modulation). Independent of `stationary` (which controls the analysis model).
     int coarseQ;    //!<`[--coarse-Q=INT; default=1]`: coarse-graining factor along wavelet time axis. Must divide wdm->NT. Q=1 disables coarse-graining.
     int ws_approx;  //!<`[--ws-approx; default=FALSE]`: use a Welch-Satterthwaite effective number of degrees of freedom (Qeff) per coarse cell in the wavelet-domain likelihood, precomputed (frozen) from the injected covariance. Injection-only (requires --sim-noise).
+    int crop_time;  //!<`[--crop-time=INT; default=0]`: number of WDM fine time pixels to crop from EACH end before the coarse likelihood sum (excludes WDM edge-effect pixels). Rounded up to whole coarse cells (Q pixels each).
     int fixSky;     //!<`[--fix-sky; default=FALSE]`: hold sky location fixed to injection parameters.  Set to `TRUE` if Flags::knownSource=`TRUE`.
     int fixFdot;
     int fixFreq;    //!<`[--fix-freq; default=FALSE]`: hold GW frequency fixed to injection parameters

@@ -64,8 +64,11 @@ struct GalaxyModulation
     /* Spline evaluations cached on the wavelet time grid for a given coarsening
      * factor Q. The 6 modulation splines are stationary across an MCMC run, so
      * we evaluate them once per (wdm, Q) pair and reuse. cache_*[q] is the
-     * spline value at t = (q*Q + (Q-1)/2) * wdm->dt, which collapses to t = q*dt
-     * when Q = 1. Q_cached = 0 means uninitialized. */
+     * cell-AVERAGE of the spline over the Q fine pixels in coarse cell q,
+     * (1/Q) sum_{i=q*Q}^{(q+1)*Q-1} m(i*dt), which collapses to the single
+     * spline value m(q*dt) when Q = 1. This matches the cell-averaged data
+     * statistic (see galaxy_modulation_cache_for_Q). Q_cached = 0 means
+     * uninitialized. */
     int Q_cached;
     int Nt_cached;
     int Nt_alloc;

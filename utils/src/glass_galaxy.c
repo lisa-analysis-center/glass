@@ -787,15 +787,34 @@ void galaxy_modulation_cache_for_Q(struct GalaxyModulation *gm, struct Wavelets 
         gm->Nt_alloc = Nt;
     }
 
-    double half_step = (Q - 1) * 0.5;
+    // Cell-AVERAGE of the modulation over the Q fine pixels in each coarse cell,
+    // i.e. (1/Q) sum_{i in cell} m(i*dt). This matches the data statistic
+    // P_q = (1/Q) sum_i w_i^2 whose expectation is <S>_cell, the cell-average of
+    // the per-pixel variance. The previous code sampled only the cell midpoint;
+    // for a curved (annual) modulation that biases the modeled galactic power by
+    // m(midpoint) - <m>_cell -- systematically low near the annual peaks where the
+    // galaxy is brightest and the modulation is most concave. Averaging removes
+    // that bias to all orders. Fine pixel i sits at t = i*dt (same mapping the
+    // Q=1 path uses), so for Q=1 the average collapses to the single-pixel value
+    // and this is bit-for-bit identical to the old midpoint behavior.
+    double invQ = 1.0 / (double)Q;
     for (int q = 0; q < Nt; q++) {
-        double t = (q * Q + half_step) * wdm->dt;
-        gm->cache_XX[q] = spline_interpolation(gm->XX_spline, t);
-        gm->cache_YY[q] = spline_interpolation(gm->YY_spline, t);
-        gm->cache_ZZ[q] = spline_interpolation(gm->ZZ_spline, t);
-        gm->cache_XY[q] = spline_interpolation(gm->XY_spline, t);
-        gm->cache_XZ[q] = spline_interpolation(gm->XZ_spline, t);
-        gm->cache_YZ[q] = spline_interpolation(gm->YZ_spline, t);
+        double axx=0, ayy=0, azz=0, axy=0, axz=0, ayz=0;
+        for (int i = q*Q; i < (q+1)*Q; i++) {
+            double t = i * wdm->dt;
+            axx += spline_interpolation(gm->XX_spline, t);
+            ayy += spline_interpolation(gm->YY_spline, t);
+            azz += spline_interpolation(gm->ZZ_spline, t);
+            axy += spline_interpolation(gm->XY_spline, t);
+            axz += spline_interpolation(gm->XZ_spline, t);
+            ayz += spline_interpolation(gm->YZ_spline, t);
+        }
+        gm->cache_XX[q] = axx*invQ;
+        gm->cache_YY[q] = ayy*invQ;
+        gm->cache_ZZ[q] = azz*invQ;
+        gm->cache_XY[q] = axy*invQ;
+        gm->cache_XZ[q] = axz*invQ;
+        gm->cache_YZ[q] = ayz*invQ;
     }
 
     gm->Q_cached = Q;

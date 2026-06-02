@@ -1769,6 +1769,7 @@ void print_glass_usage()
     fprintf(stdout,"       --stationary-conf : inject confusion noise as stationary (no time modulation)\n");
     fprintf(stdout,"       --coarse-Q    : WDM time-axis coarse-graining factor (1)\n");
     fprintf(stdout,"       --ws-approx   : freeze Welch-Satterthwaite effective dof per coarse cell (injection only)\n");
+    fprintf(stdout,"       --crop-time   : fine time pixels to crop from each end of coarse logL (0)\n");
     fprintf(stdout,"       --noiseseed   : seed for noise RNG                  \n");
     fprintf(stdout,"\n");
     
@@ -1824,6 +1825,7 @@ void parse_data_args(int argc, char **argv, struct Data *data, struct Orbit *orb
     flags->stationaryConf = 0;
     flags->coarseQ     = 1;
     flags->ws_approx   = 0;
+    flags->crop_time   = 0;
     flags->burnin      = 1;
     flags->debug       = 0;
     flags->strainData  = 0;
@@ -1896,6 +1898,7 @@ void parse_data_args(int argc, char **argv, struct Data *data, struct Orbit *orb
         {"stationary-conf", no_argument, 0, 0 },
         {"coarse-Q",    required_argument, 0, 0 },
         {"ws-approx",   no_argument, 0, 0 },
+        {"crop-time",   required_argument, 0, 0 },
         {"phase",       no_argument, 0, 0 },
         {"sangria",     no_argument, 0, 0 },
         {"prior",       no_argument, 0, 0 },
@@ -1936,6 +1939,7 @@ void parse_data_args(int argc, char **argv, struct Data *data, struct Orbit *orb
                 if(strcmp("stationary-conf", long_options[long_index].name) == 0) flags->stationaryConf = 1;
                 if(strcmp("coarse-Q",    long_options[long_index].name) == 0) flags->coarseQ    = atoi(optarg);
                 if(strcmp("ws-approx",   long_options[long_index].name) == 0) flags->ws_approx  = 1;
+                if(strcmp("crop-time",   long_options[long_index].name) == 0) flags->crop_time  = atoi(optarg);
                 if(strcmp("prior",       long_options[long_index].name) == 0) flags->prior      = 1;
                 if(strcmp("no-burnin",   long_options[long_index].name) == 0) flags->burnin     = 0;
                 if(strcmp("no-rj",       long_options[long_index].name) == 0) flags->rj         = 0;
