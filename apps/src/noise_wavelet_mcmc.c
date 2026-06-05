@@ -313,6 +313,25 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* Crop edge time pixels from the coarse likelihood. Quantized to whole coarse
+     * cells: drop ceil(crop_time/Q) cells from each end so at least crop_time fine
+     * pixels are removed. The P/Qeff arrays keep all Ncoarse cells; only the
+     * likelihood sum (and its normalization) is restricted to [qlo,qhi). */
+    if (flags->crop_time > 0) {
+        int qcrop = (flags->crop_time + Q - 1) / Q;   // whole cells per end
+        if (2*qcrop >= Ncoarse) {
+            fprintf(stderr, "--crop-time=%d removes all coarse cells "
+                    "(2*ceil(%d/%d)=%d >= Ncoarse=%d)\n",
+                    flags->crop_time, flags->crop_time, Q, 2*qcrop, Ncoarse);
+            exit(-1);
+        }
+        stats.qlo = qcrop;
+        stats.qhi = Ncoarse - qcrop;
+        printf("crop-time: dropping %d coarse cell(s) (= %d fine pixels) per end; "
+               "likelihood uses cells [%d,%d) of %d\n",
+               qcrop, qcrop*Q, stats.qlo, stats.qhi, Ncoarse);
+    }
+
 
     // For now, we are not going to have full wavelet scaleograms stored everywhere!
     // we'll treat these as outer products of the spectrum and modulation

@@ -1049,6 +1049,9 @@ void alloc_coarse_stats(struct CoarseStats *s, int Nlayer, int Q, int NT)
     s->Q = Q;
     s->Ncoarse = Ncoarse;
     s->Nlayer = Nlayer;
+    // Default: sum over every coarse cell. Narrow [qlo,qhi) to crop edge cells.
+    s->qlo = 0;
+    s->qhi = Ncoarse;
 }
 
 void free_coarse_stats(struct CoarseStats *s)
@@ -1314,10 +1317,14 @@ double my_noise_log_likelihood_wavelet_coarse(struct Data *data, struct Noise *c
     const double *Pxy = stats->Pxy;
     const double *Pxz = stats->Pxz;
     const double *Pyz = stats->Pyz;
+    // Time-pixel crop: sum only coarse cells in [qlo, qhi). Defaults to the full
+    // [0, Ncoarse) set in alloc_coarse_stats.
+    int qlo = stats->qlo;
+    int qhi = stats->qhi;
     double logL = 0.0;
     #pragma omp simd reduction(+:logL)
     for (int j=0; j<Nlayer; j++) {
-        for (int q=0; q<Ncoarse; q++) {
+        for (int q=qlo; q<qhi; q++) {
             int k = q + j*Ncoarse;
             logL += per_pixel_logL_contribution(Qeff[k],
                     Pxx[k], Pyy[k], Pzz[k],
@@ -1327,9 +1334,10 @@ double my_noise_log_likelihood_wavelet_coarse(struct Data *data, struct Noise *c
                     coarse_noise->logdetC[k]);
         }
     }
-    // constant uses the original full-grid pixel count (each fine pixel is a
-    // Gaussian degree of freedom); data->N == Nlayer * NT
-    logL -= 0.5 * 3 * data->N * log2pi;
+    // constant uses the fine-pixel count actually included: each of the (qhi-qlo)
+    // summed cells per layer carries Q fine Gaussian dof, over 3 channels. With
+    // the full [0,Ncoarse) range this equals 3 * Nlayer * Ncoarse * Q == 3*data->N.
+    logL -= 0.5 * 3.0 * (double)Nlayer * (double)(qhi - qlo) * (double)stats->Q * log2pi;
 
     return logL;
 }

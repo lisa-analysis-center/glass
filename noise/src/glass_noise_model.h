@@ -285,6 +285,14 @@ struct CoarseStats
     int Q;
     int Ncoarse;
     int Nlayer;
+    /** Coarse-cell index range [qlo, qhi) that the likelihood actually sums over.
+        Defaults to [0, Ncoarse) (all cells). Set narrower to crop edge time
+        pixels (e.g. the WDM edge-effect buffer): the P/Qeff arrays still hold all
+        Ncoarse cells, but cells outside [qlo, qhi) are excluded from the
+        likelihood and its normalization. Cropping is quantized to whole coarse
+        cells. */
+    int qlo;
+    int qhi;
 };
 
 void alloc_coarse_stats(struct CoarseStats *s, int Nlayer, int Q, int NT);
