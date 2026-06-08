@@ -1564,8 +1564,8 @@ void default_sgwb_injection(double* params, const SGWB_t SGWB_type) {
     // set default values
     switch (SGWB_type) {
         case SGWB_TEMPLATE_POWERLAW:
-            //params[0] = -21.0;
-            params[0] = -8.45;
+            params[0] = -21.0;
+            //params[0] = -8.45;
             //params[0] = -16.0;
             params[1] = 2./3.;
             //params[1] = 0.0;
