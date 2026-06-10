@@ -16,7 +16,7 @@ fi
 
 cmake -S . -B build \
   -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
-  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH="$(dirname "$openblas_config")" \
   -DBLA_VENDOR=OpenBLAS
 
