@@ -25,6 +25,7 @@
 #define N_TDI_CHANNELS 3
 #define FILTER_LENGTH 5e3 //seconds
 #define MAXSTRINGSIZE 1024 //!<maximum number of characters for `path+filename` strings
+#define MAX_SGWB_PARAMS 8 //!<size of Flags::sgwbInjParams, must be >= max(SGWB_TEMPLATE_NPARAMS)
 
 #define WAVELET_EDGE_BUFFER 100 //!<number of time slices to leave out of likelihood to avoid edge effects
 #define WAVELET_DURATION 7680.0
@@ -200,6 +201,8 @@ struct Flags
     int calibration;//!<`[--calibration; default=FALSE]`: flag for determining if model is marginalizing over calibration  uncertainty.
     int confNoise;  //!<`[--conf-noise; default=FALSE]`: include model of confusion noise in \f$S_n(f)\f$, either for simulating noise or as starting value for parameterized noise model.
     int sgwbTemplate;//!<`[--sgwb-template; default=-1]`: include model of a stochastic background in \f$S_n(f)\f$
+    int sgwbInjN;   //!<number of values parsed from `--sgwb-inj` (0 = use template defaults)
+    double sgwbInjParams[MAX_SGWB_PARAMS]; //!<`[--sgwb-inj=v1,v2,...]`: SGWB injection parameter override, in sampler coordinates (same as default_sgwb_injection())
     int resume;     //!<`[--resume; default=FALSE]`: restart sampler from run state saved during checkpointing. Starts from scratch if no checkpointing files are found.
     int catalog;    //!<`[--catalog=FILENAME; default=FALSE]`: use list of previously detected sources supplied in `FILENAME` to clean bandwidth padding (`gb_mcmc`) or for building family tree (`gb_catalog`).
     int grid;       //!<`[--ucb-grid=FILENAME; default=FALSE]`: flag indicating if a gridfile was supplied

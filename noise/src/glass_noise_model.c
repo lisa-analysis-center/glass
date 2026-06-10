@@ -1592,37 +1592,39 @@ void default_sgwb_injection(double* params, const SGWB_t SGWB_type) {
 }
 
 
-void initialize_sgwb_model(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type)
+void initialize_sgwb_model(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type, const double *inj_params)
 {
     // initialize data models
     alloc_sgwb_model(model, data->NFFT, data->Nlayer, data->Nchannel, SGWB_type);
-    
+
     // set up psd frequency grid
     for(int n=0; n<model->psd->N; n++)
         model->psd->f[n] = data->fmin + (double)n/data->T;
 
-    default_sgwb_injection(model->params, SGWB_type);
-    
+    if(inj_params) memcpy(model->params, inj_params, SGWB_TEMPLATE_NPARAMS[SGWB_type]*sizeof(double));
+    else           default_sgwb_injection(model->params, SGWB_type);
+
     model->Tobs  =  data->T;
     // get covariance matrix for initial parameters
     generate_sgwb_model(model);
 
 }
 
-void initialize_sgwb_model_wavelet(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type)
+void initialize_sgwb_model_wavelet(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type, const double *inj_params)
 {
     struct Wavelets* wdm = data->wdm;
 
     // initialize data models
     alloc_sgwb_model(model, data->lmax - data->lmin, data->Nlayer, data->Nchannel, SGWB_type);
-    
+
     // set up psd frequency grid
     for(int n=0; n<model->psd->N; n++)
         model->psd->f[n] = (data->lmin+n)*wdm->df;
 
-    default_sgwb_injection(model->params, SGWB_type);
+    if(inj_params) memcpy(model->params, inj_params, SGWB_TEMPLATE_NPARAMS[SGWB_type]*sizeof(double));
+    else           default_sgwb_injection(model->params, SGWB_type);
 
-    
+
     model->Tobs  =  data->T;
     // get covariance matrix for initial parameters
     generate_sgwb_model_wavelet(wdm, model);
@@ -1701,7 +1703,7 @@ void GetDynamicNoiseModel(struct Data *data, struct Orbit *orbit, struct Flags *
      * Compute SGWB noise levels
     **************************************************/
     struct SGWBModel *sgwb = malloc(sizeof(struct SGWBModel));
-    initialize_sgwb_model_wavelet(orbit, data, sgwb, flags->sgwbTemplate);
+    initialize_sgwb_model_wavelet(orbit, data, sgwb, flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
 
     /**************************************************
      * Combine noise components
@@ -1750,7 +1752,7 @@ void GetStationaryNoiseModel(struct Data *data, struct Orbit *orbit, struct Flag
      * Compute SGWB noise levels
     **************************************************/
     struct SGWBModel *sgwb = malloc(sizeof(struct SGWBModel));
-    initialize_sgwb_model_wavelet(orbit, data, sgwb, flags->sgwbTemplate);
+    initialize_sgwb_model_wavelet(orbit, data, sgwb, flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
 
 
     /**************************************************

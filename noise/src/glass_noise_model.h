@@ -375,9 +375,11 @@ void initialize_foreground_model_wavelet(struct Orbit *orbit, struct Data *data,
 
 /**
  \brief Set initial state of sgwb `model`
+
+ `inj_params` overrides the template's default parameters (NULL = use defaults, see default_sgwb_injection()).
  */
-void initialize_sgwb_model(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type);
-void initialize_sgwb_model_wavelet(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type);
+void initialize_sgwb_model(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type, const double *inj_params);
+void initialize_sgwb_model_wavelet(struct Orbit *orbit, struct Data *data, struct SGWBModel *model, SGWB_t SGWB_type, const double *inj_params);
 
 
 void GetDynamicNoiseModel(struct Data *data, struct Orbit *orbit, struct Flags *flags);

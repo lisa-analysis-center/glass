@@ -846,7 +846,7 @@ int main(int argc, char *argv[])
         initialize_instrument_model_wavelet(orbit, &data3, inst_w);
 
         struct SGWBModel *sgwb_w = malloc(sizeof(struct SGWBModel));
-        initialize_sgwb_model_wavelet(orbit, &data3, sgwb_w, SGWB_TEMPLATE_POWERLAW);
+        initialize_sgwb_model_wavelet(orbit, &data3, sgwb_w, SGWB_TEMPLATE_POWERLAW, NULL);
 
         generate_full_dynamic_covariance_matrix(data3.wdm, inst_w, NULL, sgwb_w, data3.noise);
         memset(testtdi->X, 0, data3.N*sizeof(double));
@@ -871,7 +871,7 @@ int main(int argc, char *argv[])
         initialize_instrument_model_wavelet(orbit, &data3, inst_w);
 
         struct SGWBModel *sgwb_w = malloc(sizeof(struct SGWBModel));
-        initialize_sgwb_model_wavelet(orbit, &data3, sgwb_w, SGWB_TEMPLATE_POWERLAW);
+        initialize_sgwb_model_wavelet(orbit, &data3, sgwb_w, SGWB_TEMPLATE_POWERLAW, NULL);
 
         generate_full_stationary_covariance_matrix(data3.wdm, inst_w, NULL, sgwb_w, data3.noise);
         memset(testtdi->X, 0, data3.N*sizeof(double));

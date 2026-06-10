@@ -147,8 +147,8 @@ int main(int argc, char *argv[])
         sgwb_trial[ic] = malloc(sizeof(struct SGWBModel));
         if(flags->sgwbTemplate>=0) 
         {
-           initialize_sgwb_model(orbit, data, sgwb_model[ic], flags->sgwbTemplate);
-           initialize_sgwb_model(orbit, data, sgwb_trial[ic], flags->sgwbTemplate);
+           initialize_sgwb_model(orbit, data, sgwb_model[ic], flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
+           initialize_sgwb_model(orbit, data, sgwb_trial[ic], flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
         }
     }
     if(flags->sgwbTemplate>=0)

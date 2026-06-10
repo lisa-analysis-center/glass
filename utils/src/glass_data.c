@@ -1765,6 +1765,8 @@ void print_glass_usage()
     fprintf(stdout,"       --duration    : duration of epoch (31457280)        \n");
     fprintf(stdout,"       --sim-noise   : data w/out noise realization        \n");
     fprintf(stdout,"       --conf-noise  : include model for confusion noise   \n");
+    fprintf(stdout,"       --sgwb-template : SGWB model [0->powerlaw,1->lognormal,2->phase transition](-1, off)\n");
+    fprintf(stdout,"       --sgwb-inj    : comma-separated SGWB injection params (template defaults)\n");
     fprintf(stdout,"       --stationary  : use stationary noise model in logL  \n");
     fprintf(stdout,"       --stationary-conf : inject confusion noise as stationary (no time modulation)\n");
     fprintf(stdout,"       --coarse-Q    : WDM time-axis coarse-graining factor (1)\n");
@@ -1821,6 +1823,7 @@ void parse_data_args(int argc, char **argv, struct Data *data, struct Orbit *orb
     flags->simNoise    = 0;
     flags->confNoise   = 0;
     flags->sgwbTemplate=-1;
+    flags->sgwbInjN    = 0;
     flags->stationary  = 0;
     flags->stationaryConf = 0;
     flags->coarseQ     = 1;
@@ -1884,7 +1887,8 @@ void parse_data_args(int argc, char **argv, struct Data *data, struct Orbit *orb
         {"threads",      required_argument, 0, 0},
         {"rundir",       required_argument, 0, 0},
         {"sgwb-template",required_argument, 0, 0},
-        
+        {"sgwb-inj",     required_argument, 0, 0},
+
         /* These options don’t set a flag.
          We distinguish them by their indices. */
         {"help",        no_argument, 0,'h'},
@@ -1935,6 +1939,20 @@ void parse_data_args(int argc, char **argv, struct Data *data, struct Orbit *orb
                 if(strcmp("sim-noise",   long_options[long_index].name) == 0) flags->simNoise   = 1;
                 if(strcmp("conf-noise",  long_options[long_index].name) == 0) flags->confNoise  = 1;
                 if(strcmp("sgwb-template",long_options[long_index].name)== 0) flags->sgwbTemplate=atoi(optarg);
+                if(strcmp("sgwb-inj",    long_options[long_index].name) == 0)
+                {
+                    char *copy = strdup(optarg);
+                    for(char *tok=strtok(copy,","); tok; tok=strtok(NULL,","))
+                    {
+                        if(flags->sgwbInjN >= MAX_SGWB_PARAMS)
+                        {
+                            fprintf(stderr,"--sgwb-inj supports at most %d values\n",MAX_SGWB_PARAMS);
+                            exit(1);
+                        }
+                        flags->sgwbInjParams[flags->sgwbInjN++] = atof(tok);
+                    }
+                    free(copy);
+                }
                 if(strcmp("stationary",  long_options[long_index].name) == 0) flags->stationary = 1;
                 if(strcmp("stationary-conf", long_options[long_index].name) == 0) flags->stationaryConf = 1;
                 if(strcmp("coarse-Q",    long_options[long_index].name) == 0) flags->coarseQ    = atoi(optarg);
@@ -2031,6 +2049,29 @@ void parse_data_args(int argc, char **argv, struct Data *data, struct Orbit *orb
             fprintf(stderr,"\t%d: %s\n",i,SGWB_TEMPLATE_NAMES[i]);
         }
         exit(1);
+    }
+
+    if(flags->sgwbInjN > 0)
+    {
+        if(flags->sgwbTemplate < 0)
+        {
+            fprintf(stderr,"--sgwb-inj requires --sgwb-template\n");
+            exit(1);
+        }
+        int n = SGWB_TEMPLATE_NPARAMS[flags->sgwbTemplate];
+        if(flags->sgwbInjN != n)
+        {
+            fprintf(stderr,"--sgwb-inj expects %d values for template %s, got %d\n",
+                    n, SGWB_TEMPLATE_NAMES[flags->sgwbTemplate], flags->sgwbInjN);
+            exit(1);
+        }
+        const double (*prior)[2] = default_sgwb_priors[flags->sgwbTemplate];
+        for(int i=0; i<n; i++)
+        {
+            if(flags->sgwbInjParams[i] < prior[i][0] || flags->sgwbInjParams[i] > prior[i][1])
+                fprintf(stderr,"WARNING: --sgwb-inj param %d (%g) outside prior [%g,%g]; recovery will be biased and --cheat starts out of bounds\n",
+                        i, flags->sgwbInjParams[i], prior[i][0], prior[i][1]);
+        }
     }
     
     if(flags->verbose && flags->quiet)

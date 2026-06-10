@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
         // NOTE: refactored so these pointers being NULL means excluded from cov matrix
         if (flags->sgwbTemplate>=0) {
             sgwb_ptr = &sgwb_inj;
-            initialize_sgwb_model_wavelet(orbit, data, sgwb_ptr, flags->sgwbTemplate);
+            initialize_sgwb_model_wavelet(orbit, data, sgwb_ptr, flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
         }
         if (flags->stationaryConf)
             generate_full_stationary_covariance_matrix(data->wdm, &inst_inj, conf_ptr, sgwb_ptr, data->noise);
@@ -397,8 +397,8 @@ int main(int argc, char *argv[])
         {
             sgwb_model[ic] = malloc(sizeof(struct SGWBModel));
             sgwb_trial[ic] = malloc(sizeof(struct SGWBModel));
-            initialize_sgwb_model_wavelet(orbit, data, sgwb_model[ic], flags->sgwbTemplate);
-            initialize_sgwb_model_wavelet(orbit, data, sgwb_trial[ic], flags->sgwbTemplate);
+            initialize_sgwb_model_wavelet(orbit, data, sgwb_model[ic], flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
+            initialize_sgwb_model_wavelet(orbit, data, sgwb_trial[ic], flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
         }
         sprintf(filename,"%s/sgwb_noise_model.dat",data->dataDir);
         print_noise_model(sgwb_model[0]->psd, filename);
