@@ -2,158 +2,50 @@
 # don't exit if a command errors
 set +e
 
-NSTEPS=1000
+NSTEPS=2000
 DURATION=$((7680*338*24))
 NCH=6
 
-RUNDIR=wdmruns-coarse3/stat-noise-conf-pt
-mkdir -p $RUNDIR
-nice -n 15 build/apps/src/noise_wavelet_mcmc \
-        --steps $((10*$NSTEPS)) \
-        --chains $NCH \
-        --threads $NCH \
-        --cheat \
-        --fmin 5e-4 \
-        --fmax 8e-3 \
-        --duration $DURATION \
-        --stationary \
-        --conf-noise \
-        --sgwb-template 2 \
-        --coarse-Q 1 \
-        --rundir $RUNDIR \
-        --sim-noise
+# run_mcmc RUNDIR [extra args...]
+run_mcmc() {
+        local rundir=$1
+        shift
+        # skips the run if it already finished (final noise model present)
+        if [ -f "$rundir/data/final_full_noise_model.dat" ]; then
+                echo "Skipping $rundir (already finished)"
+                return 0
+        fi
+        mkdir -p "$rundir"
+        nice -n 15 build/apps/src/noise_wavelet_mcmc \
+                --steps $((10*$NSTEPS)) \
+                --chains $NCH \
+                --threads $NCH \
+                --cheat \
+                --fmin 5e-4 \
+                --fmax 8e-3 \
+                --duration $DURATION \
+                --conf-noise \
+                --rundir "$rundir" \
+                --sim-noise \
+                "$@"
+}
 
-RUNDIR=wdmruns-coarse3/noise-conf-pt-169
-mkdir -p $RUNDIR
-nice -n 15 build/apps/src/noise_wavelet_mcmc \
-        --steps $((10*$NSTEPS)) \
-        --chains $NCH \
-        --threads $NCH \
-        --cheat \
-        --fmin 5e-4 \
-        --fmax 8e-3 \
-        --duration $DURATION \
-        --conf-noise \
-        --sgwb-template 2 \
-        --coarse-Q 169 \
-        --rundir $RUNDIR \
-        --sim-noise
+# phase transition upper limits
+run_mcmc ./wdmruns-coarse6/stat-noise-conf-pt --sgwb-template 2 --coarse-Q 1 --stationary --sgwb-inj  1.0,1.0,-18.0,-2.5
+run_mcmc ./wdmruns-coarse6/noise-conf-pt-169 --sgwb-template 2 --coarse-Q 169 --sgwb-inj  1.0,1.0,-18.0,-2.5
 
-#RUNDIR=wdmruns-coarse3/stat-noise-conf-pl
-#mkdir -p $RUNDIR
-#nice -n 15 build/apps/src/noise_wavelet_mcmc \
-#        --steps $((10*$NSTEPS)) \
-#        --chains $NCH \
-#        --threads $NCH \
-#        --cheat \
-#        --fmin 5e-4 \
-#        --fmax 8e-3 \
-#        --duration $DURATION \
-#        --stationary \
-#        --conf-noise \
-#        --sgwb-template 0 \
-#        --coarse-Q 1 \
-#        --rundir $RUNDIR \
-#        --sim-noise
+# powerlaw upper limits
+run_mcmc ./wdmruns-coarse6/stat-noise-conf-pl --sgwb-template 0 --coarse-Q 1 --stationary --sgwb-inj  -20.0,0.6667
+run_mcmc ./wdmruns-coarse6/noise-conf-pl-169 --sgwb-template 0 --coarse-Q 169 --sgwb-inj  -20.0,0.6667
 
-#RUNDIR=wdmruns-coarse3/noise-conf-pl-169
-#mkdir -p $RUNDIR
-#nice -n 15 build/apps/src/noise_wavelet_mcmc \
-#        --steps $((10*$NSTEPS)) \
-#        --chains $NCH \
-#        --threads $NCH \
-#        --cheat \
-#        --fmin 5e-4 \
-#        --fmax 8e-3 \
-#        --duration $DURATION \
-#        --conf-noise \
-#        --sgwb-template 0 \
-#        --coarse-Q 169 \
-#        --rundir $RUNDIR \
-#        --sim-noise
+# lognormal upper limits
+run_mcmc ./wdmruns-coarse6/stat-noise-conf-ln --sgwb-template 1 --coarse-Q 1 --stationary --sgwb-inj  -4.0,-2.69,0.0
+run_mcmc ./wdmruns-coarse6/noise-conf-ln-169 --sgwb-template 1 --coarse-Q 169 --sgwb-inj  -4.0,-2.69,0.0
 
-#RUNDIR=wdmruns-coarse3/stat-noise-conf-ln-detection
-#mkdir -p $RUNDIR
-#nice -n 15 build/apps/src/noise_wavelet_mcmc \
-#        --steps $((10*$NSTEPS)) \
-#        --chains $NCH \
-#        --threads $NCH \
-#        --cheat \
-#        --fmin 5e-4 \
-#        --fmax 8e-3 \
-#        --duration $DURATION \
-#        --stationary \
-#        --conf-noise \
-#        --sgwb-template 1 \
-#        --coarse-Q 1 \
-#        --rundir $RUNDIR \
-#        --sim-noise
-##        --stationary-conf \
-#
-#RUNDIR=wdmruns-coarse3/statws-noise-conf-ln-detection
-#mkdir -p $RUNDIR
-#nice -n 15 build/apps/src/noise_wavelet_mcmc \
-#        --steps $((10*$NSTEPS)) \
-#        --chains $NCH \
-#        --threads $NCH \
-#        --cheat \
-#        --fmin 5e-4 \
-#        --fmax 8e-3 \
-#        --duration $DURATION \
-#        --stationary \
-#        --conf-noise \
-#        --sgwb-template 1 \
-#        --coarse-Q 1 \
-#        --ws-approx \
-#        --rundir $RUNDIR \
-#        --sim-noise
-##        --stationary-conf \
-#
-#RUNDIR=wdmruns-coarse3/noise-conf-ln-169-detection
-#mkdir -p $RUNDIR
-#nice -n 15 build/apps/src/noise_wavelet_mcmc \
-#        --steps $((10*$NSTEPS)) \
-#        --chains $NCH \
-#        --threads $NCH \
-#        --cheat \
-#        --fmin 5e-4 \
-#        --fmax 8e-3 \
-#        --duration $DURATION \
-#        --conf-noise \
-#        --sgwb-template 1 \
-#        --coarse-Q 169 \
-#        --rundir $RUNDIR \
-#        --sim-noise
+# powerlaw detections
+run_mcmc ./wdmruns-coarse6/stat-noise-conf-pl-detection --sgwb-template 0 --coarse-Q 1 --stationary --sgwb-inj  -9.5,0.6667
+run_mcmc ./wdmruns-coarse6/noise-conf-pl-169-detection --sgwb-template 0 --coarse-Q 169 --sgwb-inj  -9.5,0.6667
 
-#RUNDIR=wdmruns-coarse3/noise-conf-ln-ws169-avg-detection
-#mkdir -p $RUNDIR
-#nice -n 15 build/apps/src/noise_wavelet_mcmc \
-#        --steps $((10*$NSTEPS)) \
-#        --chains $NCH \
-#        --threads $NCH \
-#        --cheat \
-#        --fmin 5e-4 \
-#        --fmax 8e-3 \
-#        --duration $DURATION \
-#        --conf-noise \
-#        --sgwb-template 1 \
-#        --coarse-Q 169 \
-#        --ws-approx \
-#        --rundir $RUNDIR \
-#        --sim-noise
-
-#RUNDIR=wdmruns-coarse3/noise-conf-ln-1-detection
-#mkdir -p $RUNDIR
-#nice -n 15 build/apps/src/noise_wavelet_mcmc \
-#        --steps $NSTEPS \
-#        --chains $NCH \
-#        --threads $NCH \
-#        --cheat \
-#        --fmin 5e-4 \
-#        --fmax 8e-3 \
-#        --duration $DURATION \
-#        --conf-noise \
-#        --sgwb-template 1 \
-#        --coarse-Q 1 \
-#        --rundir $RUNDIR \
-#        --sim-noise
+# lognormal detections
+run_mcmc ./wdmruns-coarse6/stat-noise-conf-ln-detection --sgwb-template 1 --coarse-Q 1 --stationary --sgwb-inj  -3.0,-2.69,0.0
+run_mcmc ./wdmruns-coarse6/noise-conf-ln-169-detection --sgwb-template 1 --coarse-Q 169 --sgwb-inj  -3.0,-2.69,0.0
