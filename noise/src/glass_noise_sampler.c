@@ -970,7 +970,7 @@ void noise_instrument_model_mcmc_wavelet(struct Orbit *orbit, struct Data *data,
     copy_instrument_model(model_x,model_y);
 
     // skip initializing likelihood
-    
+
     //set priors
     double Sacc = 9.00e-30;
     double Soms = 2.25e-22;
@@ -978,7 +978,14 @@ void noise_instrument_model_mcmc_wavelet(struct Orbit *orbit, struct Data *data,
     double Sacc_max = 9.00e-30*10;
     double Soms_min = 2.25e-22/10;
     double Soms_max = 2.25e-22*10;
-    
+
+    //linear-drift priors (fractional change at the run endpoints; u in [-1,1])
+    //bounded well inside +/-1 to keep the time-varying variance positive
+    double Sdrift = 0.1;        //!< typical drift jump scale
+    double drift_min = -0.5;
+    double drift_max =  0.5;
+    int sample_drift = model_x->drift_enabled;
+
     //set correlation matrix
     double *acc_jump_vec = malloc(model_x->Nlink*sizeof(double));
     double **correlation_matrix = malloc(model_x->Nlink*sizeof(double *));
@@ -1028,7 +1035,8 @@ void noise_instrument_model_mcmc_wavelet(struct Orbit *orbit, struct Data *data,
         
         int i;
         int j;
-        type = (int)(rand_r_U_0_1(&chain->r[ic])*3.);
+        //when drift is sampled, a 4th proposal type perturbs the per-link drifts
+        type = (int)(rand_r_U_0_1(&chain->r[ic])*(sample_drift ? 4. : 3.));
         
         switch(type)
         {
@@ -1105,8 +1113,23 @@ void noise_instrument_model_mcmc_wavelet(struct Orbit *orbit, struct Data *data,
                     if(model_y->sacc[i] < Sacc_min || model_y->sacc[i] > Sacc_max) logPy = -INFINITY;
                 }
                 break;
+            case 3:
+                //update the per-link linear drift (only reached when sample_drift)
+                i = (int)(rand_r_U_0_1(&chain->r[ic])* (double)model_x->Nlink);
+                model_y->sacc_drift[i] = model_x->sacc_drift[i] + scale * Sdrift * rand_r_N_0_1(&chain->r[ic]);
+                model_y->soms_drift[i] = model_x->soms_drift[i] + scale * Sdrift * rand_r_N_0_1(&chain->r[ic]);
+
+                //OMS noise (and hence its drift) is degenerate on a link
+                if(i%2==0) model_y->soms_drift[i+1] = model_y->soms_drift[i];
+                else model_y->soms_drift[i-1] = model_y->soms_drift[i];
+
+                //check priors
+                if(model_y->sacc_drift[i] < drift_min || model_y->sacc_drift[i] > drift_max) logPy = -INFINITY;
+                if(model_y->soms_drift[i] < drift_min || model_y->soms_drift[i] > drift_max) logPy = -INFINITY;
+
+                break;
         }
-        
+
         //get noise covariance matrix for initial parameters
         if(logPy > -INFINITY && !flags->prior)
         {

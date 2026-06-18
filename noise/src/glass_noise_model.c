@@ -101,6 +101,14 @@ void alloc_instrument_model(struct InstrumentModel *model, int Ndata, int Nlayer
     model->psd = malloc(sizeof(struct Noise));
     alloc_noise(model->psd, Ndata, Nlayer, Nchannel);
     model->grid_cache = NULL;
+
+    // Time-varying (drift) state. Disabled and zeroed by default so all
+    // existing call sites behave exactly as before; the app enables it.
+    model->drift_enabled = 0;
+    model->soms_drift = calloc(model->Nlink, sizeof(double));
+    model->sacc_drift = calloc(model->Nlink, sizeof(double));
+    model->psd_slope = malloc(sizeof(struct Noise));
+    alloc_noise(model->psd_slope, Ndata, Nlayer, Nchannel);
 }
 
 void alloc_foreground_model(struct ForegroundModel *model, int Ndata, int Nlayer, int Nchannel)
@@ -217,7 +225,10 @@ void free_instrument_model(struct InstrumentModel *model)
     if (model->grid_cache) free_instrument_model(model->grid_cache);
     free(model->soms);
     free(model->sacc);
+    free(model->soms_drift);
+    free(model->sacc_drift);
     free_noise(model->psd);
+    free_noise(model->psd_slope);
     free(model);
 }
 
@@ -286,6 +297,13 @@ void copy_instrument_model(struct InstrumentModel *origin, struct InstrumentMode
     copy->Nlink = origin->Nlink;
     memcpy(copy->soms, origin->soms, origin->Nlink*sizeof(double));
     memcpy(copy->sacc, origin->sacc, origin->Nlink*sizeof(double));
+
+    //Time-varying (drift) state
+    copy->drift_enabled = origin->drift_enabled;
+    memcpy(copy->soms_drift, origin->soms_drift, origin->Nlink*sizeof(double));
+    memcpy(copy->sacc_drift, origin->sacc_drift, origin->Nlink*sizeof(double));
+    if (origin->drift_enabled)
+        copy_noise(origin->psd_slope, copy->psd_slope);
 }
 
 void copy_foreground_model(struct ForegroundModel *origin, struct ForegroundModel *copy)
@@ -607,6 +625,28 @@ void generate_instrument_noise_model_wavelet(struct Wavelets *wdm, struct Orbit 
                 model->psd->C[n][m][k] = v;
                 model->psd->C[m][n][k] = v;
             }
+
+    // Time-varying instrument noise: linear drift per link coefficient.
+    // soms_i(t) = soms_i*(1 + soms_drift_i*u), likewise sacc_i, with u in [-1,1].
+    // The PSD is linear in each coefficient, so the covariance separates as
+    //   C(t,f) = C(soms,sacc; f) + u * C(soms*drift, sacc*drift; f).
+    // Reuse the same generator on the drift-scaled coefficients to get the slope.
+    if (model->drift_enabled)
+    {
+        for(int i=0; i<grid->Nlink; i++)
+        {
+            grid->soms[i] = model->soms[i] * model->soms_drift[i];
+            grid->sacc[i] = model->sacc[i] * model->sacc_drift[i];
+        }
+        generate_instrument_noise_model(orbit, grid);
+        for(int n=0; n<3; n++)
+            for(int m=n; m<3; m++)
+                for(int k=0; k<Nactive; k++) {
+                    double v = grid->psd->C[n][m][k] * inv_ND;
+                    model->psd_slope->C[n][m][k] = v;
+                    model->psd_slope->C[m][n][k] = v;
+                }
+    }
 }
 
 void generate_galactic_foreground_model(struct ForegroundModel *model)
@@ -933,6 +973,11 @@ void generate_full_dynamic_covariance_matrix_coarse(struct Wavelets *wdm, int Q,
 
     if (conf) galaxy_modulation_cache_for_Q(conf->modulation, wdm, Q);
 
+    // Time-varying instrument noise: C_inst(t,f) = psd(f) + u(t)*psd_slope(f),
+    // with u in [-1,1] mapped to the cell-center fraction of the run. u is
+    // anchored to absolute time, so it is independent of the coarse factor Q.
+    int drift = inst->drift_enabled;
+
     for(int j=jmin; j<jmax; j++)
     {
         int jrel = j - jmin;
@@ -950,13 +995,23 @@ void generate_full_dynamic_covariance_matrix_coarse(struct Wavelets *wdm, int Q,
 
             int k = q + jrel*Ncoarse;
 
-            //stationary instrument noise
+            //instrument noise (linear drift in time when enabled)
             coarse->C[0][0][k] = inst->psd->C[0][0][jrel];
             coarse->C[1][1][k] = inst->psd->C[1][1][jrel];
             coarse->C[2][2][k] = inst->psd->C[2][2][jrel];
             coarse->C[0][1][k] = inst->psd->C[0][1][jrel];
             coarse->C[0][2][k] = inst->psd->C[0][2][jrel];
             coarse->C[1][2][k] = inst->psd->C[1][2][jrel];
+
+            if (drift) {
+                double u = (2.0*q + 1.0)/(double)Ncoarse - 1.0;
+                coarse->C[0][0][k] += u*inst->psd_slope->C[0][0][jrel];
+                coarse->C[1][1][k] += u*inst->psd_slope->C[1][1][jrel];
+                coarse->C[2][2][k] += u*inst->psd_slope->C[2][2][jrel];
+                coarse->C[0][1][k] += u*inst->psd_slope->C[0][1][jrel];
+                coarse->C[0][2][k] += u*inst->psd_slope->C[0][2][jrel];
+                coarse->C[1][2][k] += u*inst->psd_slope->C[1][2][jrel];
+            }
 
             //modulated galactic foreground (sampled at coarse-cell midpoint)
             if (conf) {

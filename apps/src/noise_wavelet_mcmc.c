@@ -141,6 +141,12 @@ int main(int argc, char *argv[])
     printf("old fmin=%lg, fmax=%lg\n",data->fmin,data->fmax);
     if(flags->help) print_usage();
 
+    // Time-varying instrument noise needs the dynamic (time-resolved) likelihood.
+    if(flags->instDrift && flags->stationary) {
+        fprintf(stderr,"--inst-drift (time-varying instrument noise) is incompatible with --stationary\n");
+        exit(-1);
+    }
+
     /* Setup output directories for data and chain files */
     sprintf(data->dataDir,"%s/data",flags->runDir);
     sprintf(chain->chainDir,"%s/chains",flags->runDir);
@@ -213,6 +219,35 @@ int main(int argc, char *argv[])
         // inject some noise
         struct InstrumentModel inst_inj = {0};
         initialize_instrument_model_wavelet(orbit, data, &inst_inj);
+        if (flags->instDriftInjN > 0) {
+            if (flags->stationaryConf) {
+                fprintf(stderr,"[inst-drift-inj] requires dynamic injection; incompatible with --stationary-conf\n");
+                exit(-1);
+            }
+            int Nlink = inst_inj.Nlink;
+            if (flags->instDriftInjN != 1 && flags->instDriftInjN != 2*Nlink) {
+                fprintf(stderr,"[inst-drift-inj] expects 1 value (uniform) or %d values (sacc[%d],soms[%d]), got %d\n",
+                        2*Nlink, Nlink, Nlink, flags->instDriftInjN);
+                exit(-1);
+            }
+            // linear drift injected per coefficient (or uniform when one value given).
+            // 12-value layout matches the noise chain: sacc[0..5] then soms[0..5].
+            inst_inj.drift_enabled = 1;
+            for (int i=0; i<Nlink; i++) {
+                double sacc_d = (flags->instDriftInjN==1) ? flags->instDriftInj[0] : flags->instDriftInj[i];
+                double soms_d = (flags->instDriftInjN==1) ? flags->instDriftInj[0] : flags->instDriftInj[Nlink+i];
+                if (fabs(sacc_d) >= 1.0 || fabs(soms_d) >= 1.0) {
+                    fprintf(stderr,"[inst-drift-inj] |drift| >= 1 (sacc[%d]=%g, soms[%d]=%g) would drive the noise variance negative; use |v|<1\n",
+                            i, sacc_d, i, soms_d);
+                    exit(-1);
+                }
+                inst_inj.sacc_drift[i] = sacc_d;
+                inst_inj.soms_drift[i] = soms_d;
+            }
+            // regenerate so the covariance "slope" reflects the injected drift
+            generate_instrument_noise_model_wavelet(data->wdm, orbit, &inst_inj);
+            printf("   ...injecting time-varying instrument noise (linear drift, %d value(s))\n", flags->instDriftInjN);
+        }
         struct ForegroundModel conf_inj = {0};
         struct ForegroundModel *conf_ptr = NULL;
         if (flags->confNoise) {
@@ -363,6 +398,16 @@ int main(int argc, char *argv[])
         inst_trial[ic] = malloc(sizeof(struct InstrumentModel));
         initialize_instrument_model_wavelet(orbit, data, inst_model[ic]);
         initialize_instrument_model_wavelet(orbit, data, inst_trial[ic]);
+
+        // Time-varying instrument noise model: start the drift at zero (the
+        // stationary state) and let the sampler explore it. Regenerate so the
+        // covariance slope is consistent (zero) from the first likelihood call.
+        if (flags->instDrift) {
+            inst_model[ic]->drift_enabled = 1;
+            inst_trial[ic]->drift_enabled = 1;
+            generate_instrument_noise_model_wavelet(data->wdm, orbit, inst_model[ic]);
+            generate_instrument_noise_model_wavelet(data->wdm, orbit, inst_trial[ic]);
+        }
     }
     // noise model is only along freq axis for now
     sprintf(filename,"%s/instrument_noise_model.dat", data->dataDir);

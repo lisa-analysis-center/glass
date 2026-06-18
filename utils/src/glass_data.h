@@ -176,6 +176,9 @@ struct Flags
     int coarseQ;    //!<`[--coarse-Q=INT; default=1]`: coarse-graining factor along wavelet time axis. Must divide wdm->NT. Q=1 disables coarse-graining.
     int ws_approx;  //!<`[--ws-approx; default=FALSE]`: use a Welch-Satterthwaite effective number of degrees of freedom (Qeff) per coarse cell in the wavelet-domain likelihood, precomputed (frozen) from the injected covariance. Injection-only (requires --sim-noise).
     int crop_time;  //!<`[--crop-time=INT; default=0]`: number of WDM fine time pixels to crop from EACH end before the coarse likelihood sum (excludes WDM edge-effect pixels). Rounded up to whole coarse cells (Q pixels each).
+    int instDrift;  //!<`[--inst-drift; default=FALSE]`: sample a time-varying (non-stationary) instrument noise model with a linear drift per OMS and TM link coefficient. Requires the dynamic likelihood (incompatible with --stationary).
+    int instDriftInjN; //!<number of values parsed from `--inst-drift-inj` (0 = no drift injection; 1 = uniform; 2*Nlink=12 = per-coefficient)
+    double instDriftInj[2*6]; //!<`[--inst-drift-inj=v1,...; default=none]`: injected linear instrument-noise drift (fractional, coeff(t)=coeff*(1+v*u), u in [-1,1]). One value applies to all coefficients; 12 values set each individually as sacc[0..5] then soms[0..5] (same order as the noise chain). Requires dynamic injection (not --stationary-conf).
     int fixSky;     //!<`[--fix-sky; default=FALSE]`: hold sky location fixed to injection parameters.  Set to `TRUE` if Flags::knownSource=`TRUE`.
     int fixFdot;
     int fixFreq;    //!<`[--fix-freq; default=FALSE]`: hold GW frequency fixed to injection parameters

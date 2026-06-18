@@ -29,6 +29,12 @@ void print_instrument_state(struct InstrumentModel *model, FILE *fptr)
 {
     for(int i=0; i<model->Nlink; i++)fprintf(fptr,"%.12g ", model->sacc[i]);
     for(int i=0; i<model->Nlink; i++)fprintf(fptr,"%.12g ", model->soms[i]);
+    //time-varying noise: append the per-link linear drift parameters
+    if(model->drift_enabled)
+    {
+        for(int i=0; i<model->Nlink; i++)fprintf(fptr,"%.12g ", model->sacc_drift[i]);
+        for(int i=0; i<model->Nlink; i++)fprintf(fptr,"%.12g ", model->soms_drift[i]);
+    }
 }
 
 inline void print_foreground_state(struct ForegroundModel *model, FILE *fptr)

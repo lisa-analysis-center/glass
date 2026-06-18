@@ -51,6 +51,17 @@ struct InstrumentModel
     double *sacc;      //!< acceleration noise parameters
     struct Noise *psd; //!< power and cross spectral densities
 
+    /** @name Time-varying (non-stationary) instrument noise via linear drift */
+    ///@{
+    int drift_enabled;   //!< if nonzero, treat the instrument noise as time-varying with a linear drift per link coefficient
+    double *soms_drift;  //!< fractional OMS drift per link (length Nlink): soms_i(t) = soms_i*(1 + soms_drift_i*u), u in [-1,1] across the run
+    double *sacc_drift;  //!< fractional acceleration (TM) drift per link (length Nlink): sacc_i(t) = sacc_i*(1 + sacc_drift_i*u)
+    //!< Covariance "slope" wrt normalized time u: C(t,f) = psd(f) + u(t)*psd_slope(f).
+    //!< Exact because the instrument PSD is linear in each soms/sacc coefficient.
+    //!< Populated by generate_instrument_noise_model_wavelet when drift_enabled.
+    struct Noise *psd_slope;
+    ///@}
+
     //!< Reusable scratch model on the FFT-bin grid; populated lazily by
     //!< generate_instrument_noise_model_wavelet and reused across calls to
     //!< avoid ~NFFT-sized malloc/free churn in the MCMC inner loop. NULL
