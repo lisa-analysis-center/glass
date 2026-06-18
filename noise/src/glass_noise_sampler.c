@@ -980,10 +980,9 @@ void noise_instrument_model_mcmc_wavelet(struct Orbit *orbit, struct Data *data,
     double Soms_max = 2.25e-22*10;
 
     //linear-drift priors (fractional change at the run endpoints; u in [-1,1])
-    //bounded well inside +/-1 to keep the time-varying variance positive
     double Sdrift = 0.1;        //!< typical drift jump scale
-    double drift_min = -0.5;
-    double drift_max =  0.5;
+    double drift_min = -1.0;
+    double drift_max =  1.0;
     int sample_drift = model_x->drift_enabled;
 
     //set correlation matrix
@@ -1420,4 +1419,3 @@ void noise_sgwb_model_mcmc_wavelet(struct Data *data, struct InstrumentModel *no
         }
     }
 }
-

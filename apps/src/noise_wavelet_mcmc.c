@@ -212,19 +212,23 @@ int main(int argc, char *argv[])
     /* Initialize chain structure and files */
     initialize_chain(chain, flags, &data->cseed, "w");
 
+    /* Keep the simulated instrument model so the injected covariance can be
+     * written to full_noise_model.dat and used for --cheat initialization. */
+    struct InstrumentModel *inst_inj = NULL;
+
     /* read data */
     if(flags->strainData)
         ReadData(data,orbit,flags);
     else if(flags->simNoise) {
         // inject some noise
-        struct InstrumentModel inst_inj = {0};
-        initialize_instrument_model_wavelet(orbit, data, &inst_inj);
+        inst_inj = calloc(1, sizeof(struct InstrumentModel));
+        initialize_instrument_model_wavelet(orbit, data, inst_inj);
         if (flags->instDriftInjN > 0) {
             if (flags->stationaryConf) {
                 fprintf(stderr,"[inst-drift-inj] requires dynamic injection; incompatible with --stationary-conf\n");
                 exit(-1);
             }
-            int Nlink = inst_inj.Nlink;
+            int Nlink = inst_inj->Nlink;
             if (flags->instDriftInjN != 1 && flags->instDriftInjN != 2*Nlink) {
                 fprintf(stderr,"[inst-drift-inj] expects 1 value (uniform) or %d values (sacc[%d],soms[%d]), got %d\n",
                         2*Nlink, Nlink, Nlink, flags->instDriftInjN);
@@ -232,7 +236,7 @@ int main(int argc, char *argv[])
             }
             // linear drift injected per coefficient (or uniform when one value given).
             // 12-value layout matches the noise chain: sacc[0..5] then soms[0..5].
-            inst_inj.drift_enabled = 1;
+            inst_inj->drift_enabled = 1;
             for (int i=0; i<Nlink; i++) {
                 double sacc_d = (flags->instDriftInjN==1) ? flags->instDriftInj[0] : flags->instDriftInj[i];
                 double soms_d = (flags->instDriftInjN==1) ? flags->instDriftInj[0] : flags->instDriftInj[Nlink+i];
@@ -241,11 +245,11 @@ int main(int argc, char *argv[])
                             i, sacc_d, i, soms_d);
                     exit(-1);
                 }
-                inst_inj.sacc_drift[i] = sacc_d;
-                inst_inj.soms_drift[i] = soms_d;
+                inst_inj->sacc_drift[i] = sacc_d;
+                inst_inj->soms_drift[i] = soms_d;
             }
             // regenerate so the covariance "slope" reflects the injected drift
-            generate_instrument_noise_model_wavelet(data->wdm, orbit, &inst_inj);
+            generate_instrument_noise_model_wavelet(data->wdm, orbit, inst_inj);
             printf("   ...injecting time-varying instrument noise (linear drift, %d value(s))\n", flags->instDriftInjN);
         }
         struct ForegroundModel conf_inj = {0};
@@ -262,9 +266,9 @@ int main(int argc, char *argv[])
             initialize_sgwb_model_wavelet(orbit, data, sgwb_ptr, flags->sgwbTemplate, flags->sgwbInjN ? flags->sgwbInjParams : NULL);
         }
         if (flags->stationaryConf)
-            generate_full_stationary_covariance_matrix(data->wdm, &inst_inj, conf_ptr, sgwb_ptr, data->noise);
+            generate_full_stationary_covariance_matrix(data->wdm, inst_inj, conf_ptr, sgwb_ptr, data->noise);
         else
-            generate_full_dynamic_covariance_matrix(data->wdm, &inst_inj, conf_ptr, sgwb_ptr, data->noise);
+            generate_full_dynamic_covariance_matrix(data->wdm, inst_inj, conf_ptr, sgwb_ptr, data->noise);
         // alloc tdi data
         alloc_tdi(data->tdi, data->N, 3);
 
@@ -399,12 +403,21 @@ int main(int argc, char *argv[])
         initialize_instrument_model_wavelet(orbit, data, inst_model[ic]);
         initialize_instrument_model_wavelet(orbit, data, inst_trial[ic]);
 
-        // Time-varying instrument noise model: start the drift at zero (the
-        // stationary state) and let the sampler explore it. Regenerate so the
-        // covariance slope is consistent (zero) from the first likelihood call.
+        // Time-varying instrument noise model. By default start at zero drift;
+        // --cheat starts all instrument parameters at the injected values.
         if (flags->instDrift) {
             inst_model[ic]->drift_enabled = 1;
             inst_trial[ic]->drift_enabled = 1;
+            if (flags->cheat && inst_inj) {
+                memcpy(inst_model[ic]->sacc, inst_inj->sacc, inst_inj->Nlink*sizeof(double));
+                memcpy(inst_model[ic]->soms, inst_inj->soms, inst_inj->Nlink*sizeof(double));
+                memcpy(inst_model[ic]->sacc_drift, inst_inj->sacc_drift, inst_inj->Nlink*sizeof(double));
+                memcpy(inst_model[ic]->soms_drift, inst_inj->soms_drift, inst_inj->Nlink*sizeof(double));
+                memcpy(inst_trial[ic]->sacc, inst_inj->sacc, inst_inj->Nlink*sizeof(double));
+                memcpy(inst_trial[ic]->soms, inst_inj->soms, inst_inj->Nlink*sizeof(double));
+                memcpy(inst_trial[ic]->sacc_drift, inst_inj->sacc_drift, inst_inj->Nlink*sizeof(double));
+                memcpy(inst_trial[ic]->soms_drift, inst_inj->soms_drift, inst_inj->Nlink*sizeof(double));
+            }
             generate_instrument_noise_model_wavelet(data->wdm, orbit, inst_model[ic]);
             generate_instrument_noise_model_wavelet(data->wdm, orbit, inst_trial[ic]);
         }
@@ -468,8 +481,24 @@ int main(int argc, char *argv[])
             conf_model[ic]->logL = logL;
     }
 
+    /* full_noise_model.dat represents the injected covariance, independent of
+     * where the sampler starts. Rebuild chain zero with the retained injection
+     * model before writing it, then restore its sampler covariance. */
+    if (inst_inj) {
+        if (flags->stationary)
+            generate_full_stationary_covariance_matrix_coarse(data->wdm, Q, inst_inj, conf_model[0], sgwb_model[0], scaleogram[0]);
+        else
+            generate_full_dynamic_covariance_matrix_coarse(data->wdm, Q, inst_inj, conf_model[0], sgwb_model[0], scaleogram[0]);
+    }
     sprintf(filename,"%s/full_noise_model.dat",data->dataDir);
     print_noise_model_dynamic_coarse(data, scaleogram[0], Q, filename);
+    if (inst_inj) {
+        if (flags->stationary)
+            generate_full_stationary_covariance_matrix_coarse(data->wdm, Q, inst_model[0], conf_model[0], sgwb_model[0], scaleogram[0]);
+        else
+            generate_full_dynamic_covariance_matrix_coarse(data->wdm, Q, inst_model[0], conf_model[0], sgwb_model[0], scaleogram[0]);
+        invert_noise_covariance_matrix(scaleogram[0]);
+    }
 
     //MCMC
     printf("\n==== Noise Wavelet MCMC Sampler ====\n");
@@ -651,6 +680,7 @@ int main(int argc, char *argv[])
 
     
     free_coarse_stats(&stats);
+    if (inst_inj) free_instrument_model(inst_inj);
 
     //print total run time
     stop = time(NULL);
