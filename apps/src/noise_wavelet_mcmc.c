@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 
     // Time-varying instrument noise needs the dynamic (time-resolved) likelihood.
     if(flags->instDrift && flags->stationary) {
-        fprintf(stderr,"--inst-drift (time-varying instrument noise) is incompatible with --stationary\n");
+        fprintf(stderr,"--inst-drift (time-varying instrument noise recovery) is incompatible with --stationary\n");
         exit(-1);
     }
 
@@ -224,10 +224,6 @@ int main(int argc, char *argv[])
         inst_inj = calloc(1, sizeof(struct InstrumentModel));
         initialize_instrument_model_wavelet(orbit, data, inst_inj);
         if (flags->instDriftInjN > 0) {
-            if (flags->stationaryConf) {
-                fprintf(stderr,"[inst-drift-inj] requires dynamic injection; incompatible with --stationary-conf\n");
-                exit(-1);
-            }
             int Nlink = inst_inj->Nlink;
             if (flags->instDriftInjN != 1 && flags->instDriftInjN != 2*Nlink) {
                 fprintf(stderr,"[inst-drift-inj] expects 1 value (uniform) or %d values (sacc[%d],soms[%d]), got %d\n",

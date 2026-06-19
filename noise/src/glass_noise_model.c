@@ -562,30 +562,9 @@ void generate_instrument_noise_model(struct Orbit *orbit, struct InstrumentModel
     }
 }
 //TODO: is it worth oversampling these very smooth functional forms...?
-/*
-void generate_instrument_noise_model_wavelet_coarse(struct Wavelets *wdm, struct Orbit *orbit, struct InstrumentModel *model) {
-    // active layers
-    int imin = (int)round(model->psd->f[0]/wdm->df);
-    int imax = (int)round(model->psd->f[model->psd->N-1]/wdm->df)+1;
-    generate_instrument_noise_model(orbit,model);
-    //NOTE: normalization fudge factor
-    for(int i=0; i<model->psd->N; i++)
-        for(int n=0; n<3; n++)
-            for(int m=n; m<3; m++)
-                C[n][m][i]/=8.;
-}
-*/
 
 void generate_instrument_noise_model_wavelet(struct Wavelets *wdm, struct Orbit *orbit, struct InstrumentModel *model)
 {
-    /*
-     * Sample the instrument model directly at the wavelet layer-center
-     * frequencies of the active band (f_k = (imin+k) * wdm->df). The approx
-     * FFT->WDM convolution only reads layer-center bins, and only the active
-     * layers are written back to model->psd, so evaluating on either the full
-     * FFT grid or the full layer grid is wasted work; this is identical.
-     * Stationary instrument model only.
-     */
     int NF = wdm->NF;
     int NT = wdm->NT;
     int ND = NF * NT;
